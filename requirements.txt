@@ -1,0 +1,10 @@
+# Environment Specific
+openenv-core[core]
+openai
+python-dotenv
+
+# Data Processing
+pandas
+numpy
+matplotlib
+plotly

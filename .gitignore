@@ -1,0 +1,33 @@
+# Ignore environment variables
+.env
+.env.*
+
+# Ignore Python virtual environments
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Ignore Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignore testing/debug logs and output files
+*.log
+*debug*.txt
+*output*.txt
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Egg info
+*.egg-info/
+
+# Ignore temp folders
+temp_recovery/
