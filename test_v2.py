@@ -42,7 +42,7 @@ obs, reward, done, info = env.step(action2)
 print(f'Step2: reward={reward.score:.2f}, satiety={obs.satiety:.1f}')
 
 action3 = NutrisyncAction(items=[
-    IngredientItem(ingredient='paneer', quantity=100, cooking_method='raw'),
+    IngredientItem(ingredient='paneer', quantity=100, cooking_method='raw'), 
     IngredientItem(ingredient='wheat_flour', quantity=100, cooking_method='boiled'),
     IngredientItem(ingredient='cauliflower', quantity=150, cooking_method='steamed'),
 ])

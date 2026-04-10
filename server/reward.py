@@ -17,7 +17,7 @@ Stage 4: Core nutritional scoring (calorie pacing + macro ratios)
 Stage 5: Behavioral penalties (satiety, glycemic load, meal completeness)
 Stage 6: Action quality bonuses (cooking coherence, availability)
 Stage 7: Episode bonuses (variety, budget efficiency, clean-run)
-Stage 8: Normalize to [0, 10]
+Stage 8: Normalize to [0, 1]
 
 Backward-compatible `compute()` method is preserved for per-step UI feedback.
 """
@@ -184,15 +184,15 @@ def compute_episode_reward(state: NutrisyncState) -> float:
     reward *= (0.75 ** state.availability_violations)
 
     # ------------------------------------------------------------------
-    # Stage 8: Normalize to [0, 10]
+    # Stage 8: Normalize to [0, 1]
     # ------------------------------------------------------------------
-    reward = max(0.0, min(10.0, reward))
+    reward = max(0.0, min(10.0, reward)) / 10.0   # scale [0,10] → [0,1]
     
     with open("reward_debug.log", "a", encoding="utf-8") as _f:
-        _f.write(f"[REWARD DEBUG] spam:{spam_multiplier:.2f} sat:{satiety_misses} gl:{gl_misses} comp:{completeness_misses} avail:{state.availability_violations} -> {reward:.2f}\n")
+        _f.write(f"[REWARD DEBUG] spam:{spam_multiplier:.2f} sat:{satiety_misses} gl:{gl_misses} comp:{completeness_misses} avail:{state.availability_violations} -> {reward:.4f}\n")
         
-    logger.info(f"Episode reward (V2 Punishing): {reward:.2f}")
-    return round(reward, 2)
+    logger.info(f"Episode reward (V2 Punishing, [0,1]): {reward:.4f}")
+    return round(reward, 4)
 
 
 # ============================================================================

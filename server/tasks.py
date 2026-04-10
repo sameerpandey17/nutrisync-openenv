@@ -34,44 +34,38 @@ logger = logging.getLogger(__name__)
 
 def grade_easy(state: NutrisyncState) -> float:
     """
-    Easy grader  delegates to V2 episode reward pipeline.
-    Max achievable: ~7.5/10  ~0.75.
-    Glycemic load and cooking coherence are disabled at this tier.
+    Easy grader — delegates to V2 episode reward pipeline.
+    Returns score in [0, 1]. Glycemic load and cooking coherence disabled.
     """
     if not state.done or state.step_count < 4:
         return 0.0
-    raw = compute_episode_reward(state)   # 010 scale
-    normalized = raw / 10.0
-    logger.info(f"Grade easy: raw={raw:.2f} normalized={normalized:.3f}")
-    return round(normalized, 4)
+    score = compute_episode_reward(state)   # already [0, 1]
+    logger.info(f"Grade easy: score={score:.4f}")
+    return round(score, 4)
 
 
 def grade_medium(state: NutrisyncState) -> float:
     """
-    Medium grader  delegates to V2 episode reward pipeline.
-    Max achievable: ~6.5/10  ~0.65.
-    Vegetarian + tighter budget + micronutrients. Cooking coherence disabled.
+    Medium grader — delegates to V2 episode reward pipeline.
+    Returns score in [0, 1]. Vegetarian + tighter budget + micronutrients.
     """
     if not state.done or state.step_count < 4:
         return 0.0
-    raw = compute_episode_reward(state)
-    normalized = raw / 10.0
-    logger.info(f"Grade medium: raw={raw:.2f} normalized={normalized:.3f}")
-    return round(normalized, 4)
+    score = compute_episode_reward(state)   # already [0, 1]
+    logger.info(f"Grade medium: score={score:.4f}")
+    return round(score, 4)
 
 
 def grade_hard(state: NutrisyncState) -> float:
     """
-    Hard grader  delegates to V2 episode reward pipeline.
-    Max achievable: ~5.5/10  ~0.55.
-    Vegan + tight budget + 120g protein + all penalties active including GL all meals.
+    Hard grader — delegates to V2 episode reward pipeline.
+    Returns score in [0, 1]. Vegan + tight budget + all penalties active.
     """
     if not state.done or state.step_count < 4:
         return 0.0
-    raw = compute_episode_reward(state)
-    normalized = raw / 10.0
-    logger.info(f"Grade hard: raw={raw:.2f} normalized={normalized:.3f}")
-    return round(normalized, 4)
+    score = compute_episode_reward(state)   # already [0, 1]
+    logger.info(f"Grade hard: score={score:.4f}")
+    return round(score, 4)
 
 
 # ============================================================================

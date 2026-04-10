@@ -1,11 +1,7 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree.
+"""NutriSync server components."""
 
-"""Nutrisync environment server components."""
+from .environment import NutrisyncEnv
+from .reward import RewardEngine, compute_episode_reward
+from .tasks import TASKS
 
-from .NutriSync_environment import NutrisyncEnvironment
-
-__all__ = ["NutrisyncEnvironment"]
+__all__ = ["NutrisyncEnv", "RewardEngine", "compute_episode_reward", "TASKS"]

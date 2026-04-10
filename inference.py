@@ -1,21 +1,25 @@
 """
-NutriSync V2 Inference Script  OpenEnv Standard Format
+NutriSync V2 Inference Script — OpenEnv Standard Format
 ========================================================
 
+Uses OpenAI Python SDK with HuggingFace Inference Router as the endpoint.
+All scores are in [0, 1].
+
 Environment Variables:
-    OPENAI_API_KEY   Your OpenAI API key (required)
-    API_BASE_URL     The LLM endpoint (default: https://api.openai.com/v1)
-    MODEL_NAME       The model to use (default: Qwen/Qwen2.5-72B-Instruct)
-    NUTRISYNC_TASK   The task to run: easy | medium | hard (default: easy)
+    HF_TOKEN         HuggingFace token (primary — used with HF router)
+    OPENAI_API_KEY   Fallback API key if HF_TOKEN not set
+    API_BASE_URL     LLM endpoint (default: https://router.huggingface.co/v1)
+    MODEL_NAME       Model to use (default: Qwen/Qwen2.5-72B-Instruct)
+    NUTRISYNC_TASK   Task to run: easy | medium | hard (default: easy)
 
 Usage:
-    set OPENAI_API_KEY=sk-...
+    set HF_TOKEN=hf_...
     python inference.py
 
 STDOUT Format:
     [START] task=<task> env=nutrisync model=<model>
-    [STEP]  step=<n> action=<json> reward=<0.00> done=<true|false> error=<msg|null>
-    [END]   success=<true|false> steps=<n> score=<0.000> rewards=<r1,r2,...>
+    [STEP]  step=<n> action=<json> reward=<0.0000> done=<true|false> error=<msg|null>
+    [END]   success=<true|false> steps=<n> score=<0.0000> rewards=<r1,r2,...>
 """
 
 import json
@@ -58,18 +62,25 @@ load_env()
 
 # ---------------------------------------------------------------------------
 # Configuration from environment variables
+# Priority: GROQ_API_KEY > HF_TOKEN > OPENAI_API_KEY
 # ---------------------------------------------------------------------------
 IMAGE_NAME    = os.getenv("nutrisync-v2")
-API_KEY       = os.getenv("OPENAI_API_KEY") or os.getenv("HF_TOKEN") or os.getenv("API_KEY")
-API_BASE_URL  = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
-MODEL_NAME    = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
+API_KEY       = (
+    os.getenv("GROQ_API_KEY")
+    or os.getenv("HF_TOKEN")
+    or os.getenv("OPENAI_API_KEY")
+    or os.getenv("API_KEY")
+)
+API_BASE_URL  = os.getenv("API_BASE_URL", "https://api.groq.com/openai/v1")
+MODEL_NAME    = os.getenv("MODEL_NAME", "llama-3.3-70b-versatile")
+ENV_URL       = os.getenv("ENV_URL", "http://localhost:8000").rstrip("/")
 TASK_NAME     = os.getenv("NUTRISYNC_TASK", "easy")
 BENCHMARK     = "nutrisync"
 
-MAX_STEPS     = 4          # NutriSync is always exactly 4 steps (breakfastsnack)
+MAX_STEPS     = 4          # NutriSync is always exactly 4 steps (breakfast→snack)
 TEMPERATURE   = 0.1
 MAX_TOKENS    = 800        # V2 actions include cooking_method
-SUCCESS_SCORE_THRESHOLD = 0.5   # normalized score in [0, 1]
+SUCCESS_SCORE_THRESHOLD = 0.5   # score in [0, 1]
 
 # ---------------------------------------------------------------------------
 # Logging helpers  emit the exact OpenEnv standard lines
@@ -112,19 +123,23 @@ SYSTEM_PROMPT = textwrap.dedent("""
         - "cooking_method": one of ["raw", "boiled", "steamed", "sauteed", "fried", "roasted", "fermented"]
 
     *** STRATEGIC CHEAT SHEET (CRITICAL FOR HIGH SCORES) ***
-    1. BUDGET PACING: Do NOT front-load expenses. Reserve ~40% for Lunch and ~35% for Dinner, about 15% for Breakfast and 10% for Snacks. A single meal blowing >3% past the total budget triggers a KILL SWITCH (Score=0).
-    2. VARIETY BONUS: Use 12+ total UNIQUE ingredients across all meals to earn a massive +0.8 bonus.
-    3. ANTI-SPAM (CLUSTER REUSE): Reusing the same cluster (food group) >2 times triggers a 0.70x multiplication penalty.
-    4. SATIETY WINDOW: You MUST keep satiety between [40, 80]. Going outside this applies a 0.90x multiplication penalty. Add fiber/protein to increase; reduce simple sugars.
-    5. MEAL COMPLETENESS: Every meal MUST have Protein + Carbs + Fat. Missing one applies a 0.85x multiplication penalty.
-    6. PROTEIN PACING: If `protein_pace_deficit` is actively constraining your space, `available_ingredients` will ONLY show high-protein items. You must pick from them to avoid penalties.
-    7. FATAL GATES: Never exceed the remaining budget, select forbidden items, or ignore diet instructions.
+    Scores are in [0, 1]. Penalties below shrink your score multiplicatively.
+
+    1. BUDGET PACING: Do NOT front-load expenses. Reserve ~40% for Lunch and ~35% for Dinner, about 15% for Breakfast and 10% for Snacks. A single meal blowing >3% past the total budget triggers a KILL SWITCH (Score=0). 0-3% over applies x0.2 penalty on your entire score.
+    2. VARIETY BONUS: Use 12+ total UNIQUE ingredients across all meals AND cover 4+ food clusters to earn +0.08 (max variety bonus in [0,1] scale).
+    3. ANTI-SPAM (CLUSTER REUSE): Reusing the same cluster above its limit triggers x0.85 per excess item (softened penalty).
+       Cluster limits: vegetables=8, fats=6, whole_grains=6, proteins=4, dairy=4, legumes=4, refined_carbs=3.
+    4. SATIETY WINDOW: Keep satiety between [40, 80]. Out-of-window applies x0.95 per missed step. Add fiber/protein to increase; reduce simple sugars.
+    5. MEAL COMPLETENESS: Every meal MUST have Protein + Carbs + Fat clusters. Missing combo applies x0.95 per incomplete meal.
+    6. PROTEIN PACING: If `protein_pace_deficit` is actively constraining, `available_ingredients` will ONLY show high-protein items.
+    7. AVAILABILITY: Each unavailable ingredient used costs x0.75 per violation on episode score.
+    8. FATAL GATES: Never exceed budget >3%, select forbidden items, or ignore diet restrictions.
 
     Other Strategy guidelines:
-    - Target Macros: Protein 2035%, Carbs 4055%, Fat 2030%.
-    - Minimum Micronutrients: Iron > 15mg, Calcium > 600mg, Fiber > 25g, Vitamin C > 65mg.
-    - Calorie Density Limit: Maintain high-density fats/sugars (ghee, oil, butter) below 30% of meal calories.
-    - Glycemic Load (GL): Avoid pairing simple sugars with high GI foods without fiber-rich sides.
+    - Target Macros: Protein 20-35%, Carbs 40-55%, Fat 20-30% of total calories.
+    - Minimum Micronutrients: Iron >15mg, Calcium >600mg, Fiber >25g, Vitamin C >65mg.
+    - Calorie Density Limit: High-density fats/sugars (ghee, oil, butter, sugar, honey, cheese) below 30% of meal calories.
+    - Glycemic Load (GL): Avoid pairing simple sugars with high GI foods without fiber-rich sides. GL>20 per meal = -0.05 penalty, GL>10 = -0.02.
     - Use ONLY ingredients from available_ingredients.
     - Include protein + grain + fat source in every meal for completeness.
     - Distribute calories: breakfast=25%, lunch=35%, dinner=30%, snack=10% of daily target.
@@ -324,12 +339,13 @@ def main() -> None:
     if not API_KEY:
         print(
             "[ERROR] No API key found.\n"
-            "Set OPENAI_API_KEY environment variable.\n"
-            "Example: set OPENAI_API_KEY=sk-your_key_here",
+            "Set GROQ_API_KEY, HF_TOKEN, or OPENAI_API_KEY.\n"
+            "Example: set GROQ_API_KEY=gsk_...",
             file=sys.stderr,
         )
         sys.exit(1)
 
+    # OpenAI-compatible client — works with Groq, HF Router, or OpenAI
     client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
 
     # Run all three tasks if NUTRISYNC_TASK is not set, else just the one

@@ -1,13 +1,7 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree.
+"""NutriSync V2 — OpenEnv RL Environment."""
 
-"""Nutrisync Environment."""
-
-from .client import NutrisyncEnv
 from .models import NutrisyncAction, NutrisyncObservation
+from .server.environment import NutrisyncEnv
 
 __all__ = [
     "NutrisyncAction",

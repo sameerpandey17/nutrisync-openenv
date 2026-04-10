@@ -1,33 +1,40 @@
-# Ignore environment variables
+# Environment variables — NEVER commit secrets
 .env
 .env.*
+!.env.example
 
-# Ignore Python virtual environments
+# Python virtual environments
 .venv/
 env/
 venv/
 ENV/
-env.bak/
-venv.bak/
 
-# Ignore Python cache files
+# Python cache
 __pycache__/
 *.py[cod]
 *$py.class
 
-# Ignore testing/debug logs and output files
+# Logs and debug output
 *.log
 *debug*.txt
 *output*.txt
+*_log.txt
+test_log.txt
 
-# IDEs and Editors
+# Build / packaging
+*.egg-info/
+dist/
+build/
+
+# IDEs and editors
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Egg info
-*.egg-info/
+# OS
+.DS_Store
+Thumbs.db
 
-# Ignore temp folders
+# Temp
 temp_recovery/
