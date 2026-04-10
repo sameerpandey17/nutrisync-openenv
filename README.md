@@ -1,7 +1,7 @@
 ---
 title: NutriSync V2
 emoji: 🥗
-colorFrom: teal
+colorFrom: green
 colorTo: blue
 sdk: docker
 pinned: false
