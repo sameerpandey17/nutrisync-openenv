@@ -276,7 +276,8 @@ def step_env(*args):
     )
 
     if done:
-        grader      = TASKS[state.constraints.difficulty]["grader"]
+        task_key    = "hard" if state.constraints.difficulty == "expert" else state.constraints.difficulty
+        grader      = TASKS[task_key]["grader"]
         final_grade = grader(state)
         pct         = final_grade * 100
         bar_n       = int(round(pct / 5))
